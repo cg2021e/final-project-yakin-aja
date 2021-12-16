@@ -1,3 +1,6 @@
+const counterDOM = document.getElementById('counter');  
+const endDOM = document.getElementById('end');  
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -9,10 +12,6 @@ const camera = new THREE.PerspectiveCamera(
 const distance = 500;
 const initialCameraPositionY = 120;
 const initialCameraPositionX = 0;
-
-camera.position.y = initialCameraPositionY;
-camera.position.x = initialCameraPositionX;
-camera.position.z = distance;
 
 const zoom = 1.5;
 
@@ -26,48 +25,19 @@ const boardWidth = positionWidth*columns;
 const chickenSize = 15;
 const stepTime = 200;
 
-let lanes;
-let currentLane;
-let currentColumn;
-
-let previousTimestamp;
-let startMoving;
-let moves;
-let stepStartTimestamp;
+let lanes, currentLane, currentColumn;
+let previousTimestamp, startMoving, moves, stepStartTimestamp;
+let gameOver, requestId;
 
 // chicken
 const chicken = new Chicken();
 scene.add( chicken );
 
-function Chicken() {
-  const chicken = new THREE.Group();
-
-  const body = new THREE.Mesh(
-    new THREE.BoxBufferGeometry( chickenSize*zoom, chickenSize*zoom, 20*zoom ), 
-    new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: true } )
-  );
-  body.position.z = 10*zoom;
-  body.castShadow = true;
-  body.receiveShadow = true;
-  chicken.add(body);
-
-  const rowel = new THREE.Mesh(
-    new THREE.BoxBufferGeometry( 2*zoom, 4*zoom, 2*zoom ), 
-    new THREE.MeshLambertMaterial( { color: 0xF0619A, flatShading: true } )
-  );
-  rowel.position.z = 21*zoom;
-  rowel.castShadow = true;
-  rowel.receiveShadow = false;
-  chicken.add(rowel);
-
-  return chicken;  
-}
-
 // hemilight
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
 scene.add(hemiLight);
 
-// directionallight front
+// directionallight
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
 dirLight.position.set(initialDirLightPositionX, initialDirLightPositionY, 200);
 dirLight.castShadow = true;
@@ -82,7 +52,7 @@ dirLight.shadow.camera.right = d;
 dirLight.shadow.camera.top = d;
 dirLight.shadow.camera.bottom = -d;
 
-// define lane property
+// lane property
 const laneTypes = ['car', 'truck', 'forest'];
 const treeHeights = [20, 45, 60];
 const laneSpeeds = [2, 2.5, 3];
@@ -114,27 +84,70 @@ const addLane = () => {
   lanes.push(lane);
 }
 
+// render
+const renderer = new THREE.WebGLRenderer({
+  alpha: true,
+  antialias: true
+});
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild( renderer.domElement );
+
 // initialization
 const initaliseValues = () => {
   lanes = generateLanes();
   currentLane = 0;
   currentColumn = Math.floor(columns/2);
-
+  
   previousTimestamp = null;
   startMoving = false;
   moves = [];
+
+  gameOver = false;
+  requestId = undefined;
+  counterDOM.innerHTML = currentLane;
+  // counterDOM.value = 0;
 
   chicken.position.x = 0;
   chicken.position.y = 0;
 
   camera.position.y = initialCameraPositionY;
   camera.position.x = initialCameraPositionX;
+  camera.position.z = distance;
 
   dirLight.position.x = initialDirLightPositionX;
   dirLight.position.y = initialDirLightPositionY;
+
+  requestAnimationFrame( animate );
 }
 
 initaliseValues();
+
+// chicken
+function Chicken() {
+  const chicken = new THREE.Group();
+
+  const body = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( chickenSize*zoom, chickenSize*zoom, 20*zoom ), 
+    new THREE.MeshPhongMaterial( { color: 0xffffff } )
+  );
+  body.position.z = 10*zoom;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  chicken.add(body);
+
+  const rowel = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( 2*zoom, 4*zoom, 2*zoom ), 
+    new THREE.MeshLambertMaterial( { color: 0xF0619A } )
+  );
+  rowel.position.z = 21*zoom;
+  rowel.castShadow = true;
+  rowel.receiveShadow = false;
+  chicken.add(rowel);
+
+  return chicken;  
+}
 
 // lane
 function Lane(index) {
@@ -231,7 +244,7 @@ function Tree() {
 
   const trunk = new THREE.Mesh(
     new THREE.BoxBufferGeometry( 15*zoom, 15*zoom, 20*zoom ), 
-    new THREE.MeshPhongMaterial( { color: 0x4d2926, flatShading: true } )
+    new THREE.MeshPhongMaterial( { color: 0x4d2926 } )
   );
   trunk.position.z = 10*zoom;
   trunk.castShadow = true;
@@ -242,7 +255,7 @@ function Tree() {
 
   const crown = new THREE.Mesh(
     new THREE.BoxBufferGeometry( 30*zoom, 30*zoom, height*zoom ), 
-    new THREE.MeshLambertMaterial( { color: 0x7aa21d, flatShading: true } )
+    new THREE.MeshLambertMaterial( { color: 0x7aa21d } )
   );
   crown.position.z = (height/2+20)*zoom;
   crown.castShadow = true;
@@ -280,7 +293,7 @@ function Road() {
 function Wheel() {
   const wheel = new THREE.Mesh( 
     new THREE.BoxBufferGeometry( 12*zoom, 33*zoom, 12*zoom ), 
-    new THREE.MeshLambertMaterial( { color: 0x333333, flatShading: true } ) 
+    new THREE.MeshLambertMaterial( { color: 0x333333 } ) 
   );
   wheel.position.z = 6*zoom;
   return wheel;
@@ -293,7 +306,7 @@ function Car() {
   
   const main = new THREE.Mesh(
     new THREE.BoxBufferGeometry( 60*zoom, 30*zoom, 15*zoom ), 
-    new THREE.MeshPhongMaterial( { color, flatShading: true } )
+    new THREE.MeshPhongMaterial( { color } )
   );
   main.position.z = 12*zoom;
   main.castShadow = true;
@@ -303,12 +316,12 @@ function Car() {
   const cabin = new THREE.Mesh(
     new THREE.BoxBufferGeometry( 33*zoom, 24*zoom, 12*zoom ), 
     [
-      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carBackTexture } ),
-      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carFrontTexture } ),
-      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carRightSideTexture } ),
-      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carLeftSideTexture } ),
-      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true } ), // top
-      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true } ) // bottom
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, map: carBackTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, map: carFrontTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, map: carRightSideTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, map: carLeftSideTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc } ), // top
+      new THREE.MeshPhongMaterial( { color: 0xcccccc } ) // bottom
     ]
   );
   cabin.position.x = 6*zoom;
@@ -338,14 +351,14 @@ function Truck() {
 
   const base = new THREE.Mesh(
     new THREE.BoxBufferGeometry( 100*zoom, 25*zoom, 5*zoom ), 
-    new THREE.MeshLambertMaterial( { color: 0xb4c6fc, flatShading: true } )
+    new THREE.MeshLambertMaterial( { color: 0xb4c6fc } )
   );
   base.position.z = 10*zoom;
   truck.add(base)
 
   const cargo = new THREE.Mesh(
     new THREE.BoxBufferGeometry( 75*zoom, 35*zoom, 40*zoom ), 
-    new THREE.MeshPhongMaterial( { color: 0xb4c6fc, flatShading: true } )
+    new THREE.MeshPhongMaterial( { color: 0xb4c6fc } )
   );
   cargo.position.x = 15*zoom;
   cargo.position.z = 30*zoom;
@@ -356,12 +369,12 @@ function Truck() {
   const cabin = new THREE.Mesh(
     new THREE.BoxBufferGeometry( 25*zoom, 30*zoom, 30*zoom ), 
     [
-      new THREE.MeshPhongMaterial( { color, flatShading: true } ), // back
-      new THREE.MeshPhongMaterial( { color, flatShading: true, map: truckFrontTexture } ),
-      new THREE.MeshPhongMaterial( { color, flatShading: true, map: truckRightSideTexture } ),
-      new THREE.MeshPhongMaterial( { color, flatShading: true, map: truckLeftSideTexture } ),
-      new THREE.MeshPhongMaterial( { color, flatShading: true } ), // top
-      new THREE.MeshPhongMaterial( { color, flatShading: true } ) // bottom
+      new THREE.MeshPhongMaterial( { color } ), // back
+      new THREE.MeshPhongMaterial( { color, map: truckFrontTexture } ),
+      new THREE.MeshPhongMaterial( { color, map: truckRightSideTexture } ),
+      new THREE.MeshPhongMaterial( { color, map: truckLeftSideTexture } ),
+      new THREE.MeshPhongMaterial( { color } ), // top
+      new THREE.MeshPhongMaterial( { color } ) // bottom
     ]
   );
   cabin.position.x = -40*zoom;
@@ -400,25 +413,22 @@ function Texture(width, height, rects) {
   return new THREE.CanvasTexture(canvas);
 }
 
-// render
-const renderer = new THREE.WebGLRenderer({
-  alpha: true,
-  antialias: true
+// retry game
+document.querySelector("#retry").addEventListener("click", () => {
+  lanes.forEach(lane => scene.remove( lane.mesh ));
+  initaliseValues();
+  endDOM.style.visibility = 'hidden';
 });
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setSize( window.innerWidth, window.innerHeight );
-document.body.appendChild( renderer.domElement );
 
 // add keyboard interaction
 window.addEventListener("keydown", event => {
-  if (event.keyCode == 87 || event.keyCode == 38 ) { // move forward w/ W or UP key-button
+  if ((event.keyCode == 87 || event.keyCode == 38) && !gameOver) { // move forward w/ W or UP key-button
     move('forward');
-  } else if (event.keyCode == 83 || event.keyCode == 40) { // move backward w/ S or DOWN key-button
+  } else if ((event.keyCode == 83 || event.keyCode == 40) && !gameOver) { // move backward w/ S or DOWN key-button
     move('backward');
-  } else if (event.keyCode == 65 || event.keyCode == 37) { // move leftward w/ A or LEFT key-button
+  } else if ((event.keyCode == 65 || event.keyCode == 37) && !gameOver) { // move leftward w/ A or LEFT key-button
     move('leftward');
-  } else if (event.keyCode == 68 || event.keyCode == 39) { // move rightward w/ F or RIGHT key-button
+  } else if ((event.keyCode == 68 || event.keyCode == 39) && !gameOver) { // move rightward w/ F or RIGHT key-button
     move('rightward');
   }
 });
@@ -453,7 +463,7 @@ function move(direction) {
 
 // animation
 function animate(timestamp) {
-  requestAnimationFrame( animate );  
+  if (!gameOver) requestAnimationFrame( animate );  
 
   if (!previousTimestamp) previousTimestamp = timestamp;
   const delta = timestamp - previousTimestamp;
@@ -465,9 +475,9 @@ function animate(timestamp) {
       const aBitBeforeTheBeginingOfLane = -boardWidth*zoom/2 - positionWidth*2*zoom;
       const aBitAfterTheEndOFLane = boardWidth*zoom/2 + positionWidth*2*zoom;
       lane.vechicles.forEach(vechicle => {
-        if(lane.direction) {
+        if (lane.direction) {
           vechicle.position.x = vechicle.position.x < aBitBeforeTheBeginingOfLane ? aBitAfterTheEndOFLane : vechicle.position.x -= lane.speed/16*delta;
-        }else{
+        } else{
           vechicle.position.x = vechicle.position.x > aBitAfterTheEndOFLane ? aBitBeforeTheBeginingOfLane : vechicle.position.x += lane.speed/16*delta;
         }
       });
@@ -518,8 +528,10 @@ function animate(timestamp) {
     if (moveDeltaTime > stepTime) {
       if (moves[0] == 'forward') {
         currentLane++;
+        counterDOM.innerHTML = currentLane;
       } else if (moves[0] == 'backward') {
-        currentLane--;   
+        currentLane--;  
+        counterDOM.innerHTML = currentLane; 
       } else if (moves[0] == 'leftward') {
         currentColumn--;
       } else if (moves[0] == 'rightward') {
@@ -531,7 +543,22 @@ function animate(timestamp) {
     }
   }
 
+  // check if chicken hit vechicle
+  if (lanes[currentLane].type === 'car' || lanes[currentLane].type === 'truck') {
+    const chickenMinX = chicken.position.x - chickenSize*zoom/2;
+    const chickenMaxX = chicken.position.x + chickenSize*zoom/2;
+    const vechicleLength = { car: 60, truck: 105 }[lanes[currentLane].type]; 
+    
+    lanes[currentLane].vechicles.forEach(vechicle => {
+      const carMinX = vechicle.position.x - vechicleLength*zoom/2;
+      const carMaxX = vechicle.position.x + vechicleLength*zoom/2;
+      if (chickenMaxX > carMinX && chickenMinX < carMaxX) {
+        gameOver = true;
+        endDOM.style.visibility = 'visible';
+        window.cancelAnimationFrame(requestId);
+      }
+    });
+  }
+
   renderer.render( scene, camera );	
 }
-
-requestAnimationFrame( animate );

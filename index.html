@@ -5,13 +5,51 @@
   <meta charset="utf-8">
   <title>My first three.js app</title>
   <style>
+    @import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700&display=swap');
     body {
       margin: 0;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 2em;
+      color: white;
+      overflow: hidden;
+    }
+    button {
+      outline: none;
+      cursor: pointer;
+      border: none;
+    }
+    #counter {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+    #end {
+      position: absolute;
+      min-width: 100%;
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      visibility: hidden;
+    }
+    #end button {
+      background-color: rgb(231, 50, 18);
+      padding: 20px 50px 20px 50px;
+      font-family: inherit;
+      font-size: inherit;
+      animation : colorPop 2s linear infinite;
     }
   </style>
 </head>
 
 <body>
+  <div id="counter"></div>
+
+  <div id="end">
+    <button id="retry">Retry</button>
+  </div>
+
   <script src="https://threejs.org/build/three.js"></script>
   <script src="./js/app.js"></script>
 </body>
