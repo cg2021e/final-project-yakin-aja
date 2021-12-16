@@ -20,6 +20,8 @@ const positionWidth = 42;
 const columns = 17;
 const boardWidth = positionWidth*columns;
 
+const chickenSize = 15;
+
 let lanes;
 let previousTimestamp;
 
@@ -43,6 +45,34 @@ dirLight.shadow.camera.left = -d;
 dirLight.shadow.camera.right = d;
 dirLight.shadow.camera.top = d;
 dirLight.shadow.camera.bottom = -d;
+
+// chicken
+const chicken = new Chicken();
+scene.add( chicken );
+
+function Chicken() {
+  const chicken = new THREE.Group();
+
+  const body = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( chickenSize*zoom, chickenSize*zoom, 20*zoom ), 
+    new THREE.MeshPhongMaterial( { color: 0xffffff, flatShading: true } )
+  );
+  body.position.z = 10*zoom;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  chicken.add(body);
+
+  const rowel = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( 2*zoom, 4*zoom, 2*zoom ), 
+    new THREE.MeshLambertMaterial( { color: 0xF0619A, flatShading: true } )
+  );
+  rowel.position.z = 21*zoom;
+  rowel.castShadow = true;
+  rowel.receiveShadow = false;
+  chicken.add(rowel);
+
+  return chicken;  
+}
 
 // define lane property
 const laneTypes = ['car', 'truck', 'forest'];
