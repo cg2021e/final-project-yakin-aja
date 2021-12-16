@@ -20,9 +20,77 @@ const positionWidth = 42;
 const columns = 17;
 const boardWidth = positionWidth*columns;
 
-hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0);
+// hemilight
+hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
 scene.add(hemiLight);
 
+const initialDirLightPositionX = -100;
+const initialDirLightPositionY = -100;
+
+// directionallight
+dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(initialDirLightPositionX, initialDirLightPositionY, 200);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+var d = 500;
+dirLight.shadow.camera.left = -d;
+dirLight.shadow.camera.right = d;
+dirLight.shadow.camera.top = d;
+dirLight.shadow.camera.bottom = -d;
+
+// define lane property
+const treeHeights = [20, 45, 60];
+
+// first lanes
+const generateLanes = () => [-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9].map((index) => {
+  const lane = new Lane(index);
+  lane.mesh.position.y = index*positionWidth*zoom;
+  scene.add( lane.mesh );
+  return lane;
+}).filter((lane) => lane.index >= 0);
+
+// inisialitation
+const initaliseValues = () => {
+  lanes = generateLanes();
+
+  camera.position.y = initialCameraPositionY;
+  camera.position.x = initialCameraPositionX;
+
+  dirLight.position.x = initialDirLightPositionX;
+  dirLight.position.y = initialDirLightPositionY;
+}
+
+initaliseValues();
+
+// lane
+function Lane(index) {
+  this.index = index;
+  this.type = index <= 0 ? 'field' : 'forest';
+
+  if (this.type == 'field') { // field
+    this.mesh = new Grass();
+  } else if (this.type == 'forest') { // forest
+    this.mesh = new Grass();
+
+    this.occupiedPositions = new Set();
+    this.trees = [1,2,3,4].map(() => {
+      const tree = new Tree();
+      let position;
+      do {
+        position = Math.floor(Math.random()*columns);
+      } while (this.occupiedPositions.has(position))
+        this.occupiedPositions.add(position);
+      tree.position.x = (position*positionWidth+positionWidth/2)*zoom-boardWidth*zoom/2;
+      this.mesh.add( tree );
+      return tree;
+    })
+  }
+}
+
+// grass for field and forest
 function Grass() {
   const grass = new THREE.Group();
 
@@ -47,30 +115,34 @@ function Grass() {
   return grass;
 }
 
-function Lane(index) {
-  this.index = index;
+// tree for forest
+function Tree() {
+  const tree = new THREE.Group();
 
-  // field
-  this.type = 'field';
-  this.mesh = new Grass();
+  const trunk = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( 15*zoom, 15*zoom, 20*zoom ), 
+    new THREE.MeshPhongMaterial( { color: 0x4d2926, flatShading: true } )
+  );
+  trunk.position.z = 10*zoom;
+  trunk.castShadow = true;
+  trunk.receiveShadow = true;
+  tree.add(trunk);
+
+  height = treeHeights[Math.floor(Math.random()*treeHeights.length)];
+
+  const crown = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( 30*zoom, 30*zoom, height*zoom ), 
+    new THREE.MeshLambertMaterial( { color: 0x7aa21d, flatShading: true } )
+  );
+  crown.position.z = (height/2+20)*zoom;
+  crown.castShadow = true;
+  crown.receiveShadow = false;
+  tree.add(crown);
+
+  return tree;  
 }
 
-const generateLanes = () => [-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9].map((index) => {
-  const lane = new Lane(index);
-  lane.mesh.position.y = index*positionWidth*zoom;
-  scene.add( lane.mesh );
-  return lane;
-}).filter((lane) => lane.index >= 0);
-
-const initaliseValues = () => {
-  lanes = generateLanes()
-
-  camera.position.y = initialCameraPositionY;
-  camera.position.x = initialCameraPositionX;
-}
-
-initaliseValues();
-
+// render
 const renderer = new THREE.WebGLRenderer({
   alpha: true,
   antialias: true
@@ -80,6 +152,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
+// animation
 function animate() {
   requestAnimationFrame( animate );  
 
