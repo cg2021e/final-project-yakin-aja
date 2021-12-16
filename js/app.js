@@ -16,35 +16,24 @@ camera.position.z = distance;
 
 const zoom = 1.5;
 
+const initialDirLightPositionX = -100;
+const initialDirLightPositionY = -100;
+
 const positionWidth = 42;
 const columns = 17;
 const boardWidth = positionWidth*columns;
 
 const chickenSize = 15;
+const stepTime = 200;
 
 let lanes;
+let currentLane;
+let currentColumn;
+
 let previousTimestamp;
-
-// hemilight
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
-scene.add(hemiLight);
-
-const initialDirLightPositionX = -100;
-const initialDirLightPositionY = -100;
-
-// directionallight
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-dirLight.position.set(initialDirLightPositionX, initialDirLightPositionY, 200);
-dirLight.castShadow = true;
-scene.add(dirLight);
-
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-var d = 500;
-dirLight.shadow.camera.left = -d;
-dirLight.shadow.camera.right = d;
-dirLight.shadow.camera.top = d;
-dirLight.shadow.camera.bottom = -d;
+let startMoving;
+let moves;
+let stepStartTimestamp;
 
 // chicken
 const chicken = new Chicken();
@@ -74,6 +63,25 @@ function Chicken() {
   return chicken;  
 }
 
+// hemilight
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+scene.add(hemiLight);
+
+// directionallight front
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(initialDirLightPositionX, initialDirLightPositionY, 200);
+dirLight.castShadow = true;
+dirLight.target = chicken;
+scene.add(dirLight);
+
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+var d = 500;
+dirLight.shadow.camera.left = -d;
+dirLight.shadow.camera.right = d;
+dirLight.shadow.camera.top = d;
+dirLight.shadow.camera.bottom = -d;
+
 // define lane property
 const laneTypes = ['car', 'truck', 'forest'];
 const treeHeights = [20, 45, 60];
@@ -97,11 +105,27 @@ const generateLanes = () => [-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9].map
   return lane;
 }).filter((lane) => lane.index >= 0);
 
+// new lane
+const addLane = () => {
+  const index = lanes.length;
+  const lane = new Lane(index);
+  lane.mesh.position.y = index*positionWidth*zoom;
+  scene.add(lane.mesh);
+  lanes.push(lane);
+}
+
 // initialization
 const initaliseValues = () => {
   lanes = generateLanes();
+  currentLane = 0;
+  currentColumn = Math.floor(columns/2);
 
   previousTimestamp = null;
+  startMoving = false;
+  moves = [];
+
+  chicken.position.x = 0;
+  chicken.position.y = 0;
 
   camera.position.y = initialCameraPositionY;
   camera.position.x = initialCameraPositionX;
@@ -134,7 +158,7 @@ function Lane(index) {
       this.mesh.add( tree );
       return tree;
     });
-  } else if (this.type == 'car') {
+  } else if (this.type == 'car') { // car
     this.mesh = new Road();
     this.direction = Math.random() >= 0.5;
 
@@ -153,7 +177,7 @@ function Lane(index) {
     });
 
     this.speed = laneSpeeds[Math.floor(Math.random()*laneSpeeds.length)];
-  } else if (this.type == 'truck') {
+  } else if (this.type == 'truck') { // truck
     this.mesh = new Road();
     this.direction = Math.random() >= 0.5;
 
@@ -386,6 +410,47 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
+// add keyboard interaction
+window.addEventListener("keydown", event => {
+  if (event.keyCode == 87 || event.keyCode == 38 ) { // move forward w/ W or UP key-button
+    move('forward');
+  } else if (event.keyCode == 83 || event.keyCode == 40) { // move backward w/ S or DOWN key-button
+    move('backward');
+  } else if (event.keyCode == 65 || event.keyCode == 37) { // move leftward w/ A or LEFT key-button
+    move('leftward');
+  } else if (event.keyCode == 68 || event.keyCode == 39) { // move rightward w/ F or RIGHT key-button
+    move('rightward');
+  }
+});
+
+function move(direction) {
+  const finalPositions = moves.reduce((position,move) => {
+    if(move === 'forward') return {lane: position.lane+1, column: position.column};
+    if(move === 'backward') return {lane: position.lane-1, column: position.column};
+    if(move === 'leftward') return {lane: position.lane, column: position.column-1};
+    if(move === 'rightward') return {lane: position.lane, column: position.column+1};
+  }, {lane: currentLane, column: currentColumn})
+
+  if (direction === 'forward') {
+    if(lanes[finalPositions.lane+1].type === 'forest' && lanes[finalPositions.lane+1].occupiedPositions.has(finalPositions.column)) return;
+    if(!stepStartTimestamp) startMoving = true;
+    addLane();
+  } else if (direction === 'backward') {
+    if(finalPositions.lane === 0) return;
+    if(lanes[finalPositions.lane-1].type === 'forest' && lanes[finalPositions.lane-1].occupiedPositions.has(finalPositions.column)) return;
+    if(!stepStartTimestamp) startMoving = true;
+  } else if (direction === 'leftward') {
+    if(finalPositions.column === 0) return;
+    if(lanes[finalPositions.lane].type === 'forest' && lanes[finalPositions.lane].occupiedPositions.has(finalPositions.column-1)) return;
+    if(!stepStartTimestamp) startMoving = true;
+  } else if (direction === 'rightward') {
+    if(finalPositions.column === columns - 1 ) return;
+    if(lanes[finalPositions.lane].type === 'forest' && lanes[finalPositions.lane].occupiedPositions.has(finalPositions.column+1)) return;
+    if(!stepStartTimestamp) startMoving = true;
+  }
+  moves.push(direction);
+}
+
 // animation
 function animate(timestamp) {
   requestAnimationFrame( animate );  
@@ -394,7 +459,7 @@ function animate(timestamp) {
   const delta = timestamp - previousTimestamp;
   previousTimestamp = timestamp;
 
-  // cars moving
+  // vechicles moving
   lanes.forEach(lane => {
     if (lane.type === 'car' || lane.type === 'truck') {
       const aBitBeforeTheBeginingOfLane = -boardWidth*zoom/2 - positionWidth*2*zoom;
@@ -408,6 +473,63 @@ function animate(timestamp) {
       });
     }
   });
+
+  // chicken moving
+  if (startMoving) {
+    stepStartTimestamp = timestamp;
+    startMoving = false;
+  }
+
+  if (stepStartTimestamp) {
+    const moveDeltaTime = timestamp - stepStartTimestamp;
+    const moveDeltaDistance = Math.min(moveDeltaTime/stepTime,1)*positionWidth*zoom;
+    const jumpDeltaDistance = Math.sin(Math.min(moveDeltaTime/stepTime,1)*Math.PI)*8*zoom;
+    
+    if (moves[0] == 'forward') {
+      const positionY = currentLane*positionWidth*zoom + moveDeltaDistance;
+      camera.position.y = initialCameraPositionY + positionY; 
+      dirLight.position.y = initialDirLightPositionY + positionY; 
+      
+      chicken.position.y = positionY;
+      chicken.position.z = jumpDeltaDistance;
+    } else if (moves[0] == 'backward') {
+      positionY = currentLane*positionWidth*zoom - moveDeltaDistance
+      camera.position.y = initialCameraPositionY + positionY;
+      dirLight.position.y = initialDirLightPositionY + positionY; 
+      
+      chicken.position.y = positionY;
+      chicken.position.z = jumpDeltaDistance;
+    } else if (moves[0] == 'leftward') {
+      const positionX = (currentColumn*positionWidth+positionWidth/2)*zoom -boardWidth*zoom/2 - moveDeltaDistance;
+      camera.position.x = initialCameraPositionX + positionX;     
+      dirLight.position.x = initialDirLightPositionX + positionX; 
+      
+      chicken.position.x = positionX;
+      chicken.position.z = jumpDeltaDistance;
+    } else if (moves[0] == 'rightward') {
+      const positionX = (currentColumn*positionWidth+positionWidth/2)*zoom -boardWidth*zoom/2 + moveDeltaDistance;
+      camera.position.x = initialCameraPositionX + positionX;       
+      dirLight.position.x = initialDirLightPositionX + positionX;
+      
+      chicken.position.x = positionX; 
+      chicken.position.z = jumpDeltaDistance;
+    }
+
+    if (moveDeltaTime > stepTime) {
+      if (moves[0] == 'forward') {
+        currentLane++;
+      } else if (moves[0] == 'backward') {
+        currentLane--;   
+      } else if (moves[0] == 'leftward') {
+        currentColumn--;
+      } else if (moves[0] == 'rightward') {
+        currentColumn++;
+      } 
+      moves.shift();
+
+      stepStartTimestamp = moves.length === 0 ? null : timestamp;
+    }
+  }
 
   renderer.render( scene, camera );	
 }
