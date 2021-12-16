@@ -20,15 +20,18 @@ const positionWidth = 42;
 const columns = 17;
 const boardWidth = positionWidth*columns;
 
+let lanes;
+let previousTimestamp;
+
 // hemilight
-hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
 scene.add(hemiLight);
 
 const initialDirLightPositionX = -100;
 const initialDirLightPositionY = -100;
 
 // directionallight
-dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
 dirLight.position.set(initialDirLightPositionX, initialDirLightPositionY, 200);
 dirLight.castShadow = true;
 scene.add(dirLight);
@@ -42,8 +45,15 @@ dirLight.shadow.camera.top = d;
 dirLight.shadow.camera.bottom = -d;
 
 // define lane property
-const laneTypes = ['road', 'forest'];
+const laneTypes = ['car', 'forest'];
 const treeHeights = [20, 45, 60];
+const laneSpeeds = [2, 2.5, 3];
+const carColors = [0x428eff, 0xffef42, 0xff7b42, 0xff426b];
+
+const carFrontTexture = new Texture(40, 80, [{x: 0, y: 10, w: 30, h: 60 }]);
+const carBackTexture = new Texture(40, 80, [{x: 10, y: 10, w: 30, h: 60 }]);
+const carRightSideTexture = new Texture(110, 40, [{x: 10, y: 0, w: 50, h: 30 }, {x: 70, y: 0, w: 30, h: 30 }]);
+const carLeftSideTexture = new Texture(110, 40, [{x: 10, y: 10, w: 50, h: 30 }, {x: 70, y: 10, w: 30, h: 30 }]);
 
 // first lanes
 const generateLanes = () => [-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9].map((index) => {
@@ -56,6 +66,8 @@ const generateLanes = () => [-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9].map
 // inisialitation
 const initaliseValues = () => {
   lanes = generateLanes();
+
+  previousTimestamp = null;
 
   camera.position.y = initialCameraPositionY;
   camera.position.x = initialCameraPositionX;
@@ -87,9 +99,26 @@ function Lane(index) {
       tree.position.x = (position*positionWidth+positionWidth/2)*zoom-boardWidth*zoom/2;
       this.mesh.add( tree );
       return tree;
-    })
-  } else if (this.type == 'road') {
+    });
+  } else if (this.type == 'car') {
     this.mesh = new Road();
+    this.direction = Math.random() >= 0.5;
+
+    this.occupiedPositions = new Set();
+    this.vechicles = [1,2,3].map(() => {
+      const vechicle = new Car();
+      let position;
+      do {
+        position = Math.floor(Math.random()*columns/2);
+      } while (this.occupiedPositions.has(position))
+        this.occupiedPositions.add(position);
+      vechicle.position.x = (position*positionWidth*2+positionWidth/2)*zoom-boardWidth*zoom/2;
+      if (!this.direction) vechicle.rotation.z = Math.PI;
+      this.mesh.add( vechicle );
+      return vechicle;
+    });
+
+    this.speed = laneSpeeds[Math.floor(Math.random()*laneSpeeds.length)];
   }
 }
 
@@ -115,7 +144,7 @@ function Grass() {
   grass.add(right);
 
   grass.position.z = 1.5*zoom;
-  
+
   return grass;
 }
 
@@ -170,6 +199,76 @@ function Road() {
   return road;
 }
 
+// wheel for car
+function Wheel() {
+  const wheel = new THREE.Mesh( 
+    new THREE.BoxBufferGeometry( 12*zoom, 33*zoom, 12*zoom ), 
+    new THREE.MeshLambertMaterial( { color: 0x333333, flatShading: true } ) 
+  );
+  wheel.position.z = 6*zoom;
+  return wheel;
+}
+
+// car
+function Car() {
+  const car = new THREE.Group();
+  const color = carColors[Math.floor(Math.random() * carColors.length)];
+  
+  const main = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( 60*zoom, 30*zoom, 15*zoom ), 
+    new THREE.MeshPhongMaterial( { color, flatShading: true } )
+  );
+  main.position.z = 12*zoom;
+  main.castShadow = true;
+  main.receiveShadow = true;
+  car.add(main);
+  
+  const cabin = new THREE.Mesh(
+    new THREE.BoxBufferGeometry( 33*zoom, 24*zoom, 12*zoom ), 
+    [
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carBackTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carFrontTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carRightSideTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true, map: carLeftSideTexture } ),
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true } ), // top
+      new THREE.MeshPhongMaterial( { color: 0xcccccc, flatShading: true } ) // bottom
+    ]
+  );
+  cabin.position.x = 6*zoom;
+  cabin.position.z = 25.5*zoom;
+  cabin.castShadow = true;
+  cabin.receiveShadow = true;
+  car.add( cabin );
+  
+  const frontWheel = new Wheel();
+  frontWheel.position.x = -18*zoom;
+  car.add( frontWheel );
+
+  const backWheel = new Wheel();
+  backWheel.position.x = 18*zoom;
+  car.add( backWheel );
+
+  car.castShadow = true;
+  car.receiveShadow = false;
+  
+  return car;  
+}
+
+// texture for car
+function Texture(width, height, rects) {
+  const canvas = document.createElement( "canvas" );
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext( "2d" );
+  context.fillStyle = "#ffffff";
+  context.fillRect( 0, 0, width, height );
+  context.fillStyle = "rgba(0,0,0,0.6)";  
+  rects.forEach(rect => {
+    context.fillRect(rect.x, rect.y, rect.w, rect.h);
+  });
+  return new THREE.CanvasTexture(canvas);
+}
+
 // render
 const renderer = new THREE.WebGLRenderer({
   alpha: true,
@@ -181,8 +280,27 @@ renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
 // animation
-function animate() {
+function animate(timestamp) {
   requestAnimationFrame( animate );  
+
+  if (!previousTimestamp) previousTimestamp = timestamp;
+  const delta = timestamp - previousTimestamp;
+  previousTimestamp = timestamp;
+
+  // cars moving
+  lanes.forEach(lane => {
+    if (lane.type === 'car') {
+      const aBitBeforeTheBeginingOfLane = -boardWidth*zoom/2 - positionWidth*2*zoom;
+      const aBitAfterTheEndOFLane = boardWidth*zoom/2 + positionWidth*2*zoom;
+      lane.vechicles.forEach(vechicle => {
+        if(lane.direction) {
+          vechicle.position.x = vechicle.position.x < aBitBeforeTheBeginingOfLane ? aBitAfterTheEndOFLane : vechicle.position.x -= lane.speed/16*delta;
+        }else{
+          vechicle.position.x = vechicle.position.x > aBitAfterTheEndOFLane ? aBitBeforeTheBeginingOfLane : vechicle.position.x += lane.speed/16*delta;
+        }
+      });
+    }
+  });
 
   renderer.render( scene, camera );	
 }
