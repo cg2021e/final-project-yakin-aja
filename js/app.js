@@ -1,5 +1,6 @@
 const counterDOM = document.getElementById('counter');  
-const endDOM = document.getElementById('end');  
+const endDOM = document.getElementById('end');
+const instructionDOM = document.getElementById('instruction');    
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
@@ -547,6 +548,13 @@ function animate(timestamp) {
 
       stepStartTimestamp = moves.length === 0 ? null : timestamp;
     }
+  }
+
+  //instruction text
+  if(currentLane > 0){
+    instructionDOM.style.visibility = 'hidden';
+  } else {
+    instructionDOM.style.visibility = 'visible';
   }
 
   // check if chicken hit vechicle

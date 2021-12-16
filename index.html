@@ -24,6 +24,14 @@
       top: 20px;
       right: 20px;
     }
+    #instruction {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+      z-index: 100;
+      display:block;
+    }
     #end {
       position: absolute;
       min-width: 100%;
@@ -45,6 +53,10 @@
 
 <body>
   <div id="counter"></div>
+
+  <div id="instruction">
+    <p>Use arrow keys to move</p>
+  </div>
 
   <div id="end">
     <button id="retry">Retry</button>
