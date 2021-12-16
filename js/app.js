@@ -413,7 +413,7 @@ function Texture(width, height, rects) {
   return new THREE.CanvasTexture(canvas);
 }
 
-// retry game
+// add mouse interaction
 document.querySelector("#retry").addEventListener("click", () => {
   lanes.forEach(lane => scene.remove( lane.mesh ));
   initaliseValues();
@@ -430,6 +430,12 @@ window.addEventListener("keydown", event => {
     move('leftward');
   } else if ((event.keyCode == 68 || event.keyCode == 39) && !gameOver) { // move rightward w/ F or RIGHT key-button
     move('rightward');
+  } 
+  
+  if (event.keyCode == 32 && gameOver && endDOM.style.visibility == 'visible') { // retry w/ Space
+    lanes.forEach(lane => scene.remove( lane.mesh ));
+    initaliseValues();
+    endDOM.style.visibility = 'hidden';
   }
 });
 
