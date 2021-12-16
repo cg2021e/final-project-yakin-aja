@@ -42,6 +42,7 @@ dirLight.shadow.camera.top = d;
 dirLight.shadow.camera.bottom = -d;
 
 // define lane property
+const laneTypes = ['road', 'forest'];
 const treeHeights = [20, 45, 60];
 
 // first lanes
@@ -68,7 +69,7 @@ initaliseValues();
 // lane
 function Lane(index) {
   this.index = index;
-  this.type = index <= 0 ? 'field' : 'forest';
+  this.type = index <= 0 ? 'field' : laneTypes[Math.floor(Math.random()*laneTypes.length)];
 
   if (this.type == 'field') { // field
     this.mesh = new Grass();
@@ -87,6 +88,8 @@ function Lane(index) {
       this.mesh.add( tree );
       return tree;
     })
+  } else if (this.type == 'road') {
+    this.mesh = new Road();
   }
 }
 
@@ -112,6 +115,7 @@ function Grass() {
   grass.add(right);
 
   grass.position.z = 1.5*zoom;
+  
   return grass;
 }
 
@@ -140,6 +144,30 @@ function Tree() {
   tree.add(crown);
 
   return tree;  
+}
+
+// road 
+function Road() {
+  const road = new THREE.Group();
+
+  const createSection = color => new THREE.Mesh(
+    new THREE.PlaneBufferGeometry( boardWidth*zoom, positionWidth*zoom ), 
+    new THREE.MeshPhongMaterial( { color } )
+  );
+
+  const middle = createSection(0x454A59); // dark gray
+  middle.receiveShadow = true;
+  road.add(middle);
+
+  const left = createSection(0x393D49); // darker
+  left.position.x = -boardWidth*zoom;
+  road.add(left);
+
+  const right = createSection(0x393D49); // darker
+  right.position.x = boardWidth*zoom;
+  road.add(right);
+
+  return road;
 }
 
 // render
