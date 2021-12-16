@@ -1,3 +1,6 @@
+import * as THREE from './three.module.js';
+import {Lane} from '/js/Models/Lane.js'
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -99,7 +102,7 @@ const truckLeftSideTexture = new Texture(25, 30, [{x: 0, y: 5, w: 10, h: 10 }]);
 
 // first lanes
 const generateLanes = () => [-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9].map((index) => {
-  const lane = new Lane(index);
+  const lane = Lane(index, laneTypes, positionWidth, boardWidth, zoom);
   lane.mesh.position.y = index*positionWidth*zoom;
   scene.add( lane.mesh );
   return lane;
@@ -135,6 +138,8 @@ const initaliseValues = () => {
 }
 
 initaliseValues();
+
+console.log('hasna')
 
 // lane
 function Lane(index) {
@@ -200,25 +205,25 @@ function Lane(index) {
 }
 
 // grass for field and forest
-function Grass() {
-  const grass = new THREE.Group();
+// function Grass() {
+//   const grass = new THREE.Group();
 
-  const createSection = color => new THREE.Mesh(
-    new THREE.BoxBufferGeometry( boardWidth*zoom, positionWidth*zoom, 3*zoom ), 
-    new THREE.MeshPhongMaterial( { color } )
-  );
+//   const createSection = color => new THREE.Mesh(
+//     new THREE.BoxBufferGeometry( boardWidth*zoom, positionWidth*zoom, 3*zoom ), 
+//     new THREE.MeshPhongMaterial( { color } )
+//   );
 
-  const middle = createSection(0x55f472); // light green
-  middle.receiveShadow = true;
-  grass.add(middle);
+//   const middle = createSection(0x55f472); // light green
+//   middle.receiveShadow = true;
+//   grass.add(middle);
 
-  const left = createSection(0x46c871); // dark green
-  left.position.x = -boardWidth*zoom;
-  grass.add(left);
+//   const left = createSection(0x46c871); // dark green
+//   left.position.x = -boardWidth*zoom;
+//   grass.add(left);
 
-  const right = createSection(0x46c871); // dark green
-  right.position.x = boardWidth*zoom;
-  grass.add(right);
+//   const right = createSection(0x46c871); // dark green
+//   right.position.x = boardWidth*zoom;
+//   grass.add(right);
 
   grass.position.z = 1.5*zoom;
 
@@ -226,55 +231,55 @@ function Grass() {
 }
 
 // tree for forest
-function Tree() {
-  const tree = new THREE.Group();
+// function Tree() {
+//   const tree = new THREE.Group();
 
-  const trunk = new THREE.Mesh(
-    new THREE.BoxBufferGeometry( 15*zoom, 15*zoom, 20*zoom ), 
-    new THREE.MeshPhongMaterial( { color: 0x4d2926, flatShading: true } )
-  );
-  trunk.position.z = 10*zoom;
-  trunk.castShadow = true;
-  trunk.receiveShadow = true;
-  tree.add(trunk);
+//   const trunk = new THREE.Mesh(
+//     new THREE.BoxBufferGeometry( 15*zoom, 15*zoom, 20*zoom ), 
+//     new THREE.MeshPhongMaterial( { color: 0x4d2926, flatShading: true } )
+//   );
+//   trunk.position.z = 10*zoom;
+//   trunk.castShadow = true;
+//   trunk.receiveShadow = true;
+//   tree.add(trunk);
 
-  height = treeHeights[Math.floor(Math.random()*treeHeights.length)];
+//   height = treeHeights[Math.floor(Math.random()*treeHeights.length)];
 
-  const crown = new THREE.Mesh(
-    new THREE.BoxBufferGeometry( 30*zoom, 30*zoom, height*zoom ), 
-    new THREE.MeshLambertMaterial( { color: 0x7aa21d, flatShading: true } )
-  );
-  crown.position.z = (height/2+20)*zoom;
-  crown.castShadow = true;
-  crown.receiveShadow = false;
-  tree.add(crown);
+//   const crown = new THREE.Mesh(
+//     new THREE.BoxBufferGeometry( 30*zoom, 30*zoom, height*zoom ), 
+//     new THREE.MeshLambertMaterial( { color: 0x7aa21d, flatShading: true } )
+//   );
+//   crown.position.z = (height/2+20)*zoom;
+//   crown.castShadow = true;
+//   crown.receiveShadow = false;
+//   tree.add(crown);
 
-  return tree;  
-}
+//   return tree;  
+// }
 
 // road for vechicle
 function Road() {
   const road = new THREE.Group();
 
-  const createSection = color => new THREE.Mesh(
-    new THREE.PlaneBufferGeometry( boardWidth*zoom, positionWidth*zoom ), 
-    new THREE.MeshPhongMaterial( { color } )
-  );
+//   const createSection = color => new THREE.Mesh(
+//     new THREE.PlaneBufferGeometry( boardWidth*zoom, positionWidth*zoom ), 
+//     new THREE.MeshPhongMaterial( { color } )
+//   );
 
-  const middle = createSection(0x454A59); // dark gray
-  middle.receiveShadow = true;
-  road.add(middle);
+//   const middle = createSection(0x454A59); // dark gray
+//   middle.receiveShadow = true;
+//   road.add(middle);
 
-  const left = createSection(0x393D49); // darker
-  left.position.x = -boardWidth*zoom;
-  road.add(left);
+//   const left = createSection(0x393D49); // darker
+//   left.position.x = -boardWidth*zoom;
+//   road.add(left);
 
-  const right = createSection(0x393D49); // darker
-  right.position.x = boardWidth*zoom;
-  road.add(right);
+//   const right = createSection(0x393D49); // darker
+//   right.position.x = boardWidth*zoom;
+//   road.add(right);
 
-  return road;
-}
+//   return road;
+// }
 
 // wheel for vechicle
 function Wheel() {
